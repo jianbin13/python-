@@ -1,0 +1,66 @@
+import time
+import pymysql
+import redis
+import requests
+from lxml import etree
+from loguru import logger
+from urllib.parse import urljoin
+
+
+class Spider(object):
+    def __init__(self):
+        self.url = 'https://www.mysmth.net/nForum/board/Intern'
+        self.headers = {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+            'referer': 'https://www.mysmth.net/nForum/'
+        }
+        self.conn = redis.Redis()
+        self.coon = None
+        self.cursor = None
+        self.coon = pymysql.Connect(
+            host='127.0.0.1',
+            port=3306,
+            user='root',
+            password='root123',
+            db='mysmth'
+        )
+
+    def get_url(self, url):
+        response = requests.get(url=url, headers=self.headers)
+        if response.status_code == 200:
+            return response
+
+    def parse(self):
+        result = self.get_url(self.url)
+        tree = etree.HTML(result.text)
+        tr_list = tree.xpath('//table[@class="board-list tiz"]/tbody/tr')
+        for i in tr_list:
+            title = i.xpath('./td[2]/a/text()')[0]
+            date_time = i.xpath('./td[3]/text()')[0]
+            href = urljoin(self.url, i.xpath('./td[2]/a/@href')[0])
+            # 创建标记去重
+            flg = self.conn.sadd('title1', title)
+            if flg:
+                logger.info('{}数据可以采集'.format(title))
+                self.save_mysql(title, date_time, href)
+            else:
+                logger.info('每分钟采集一次')
+                time.sleep(60)
+                self.parse()
+
+    def save_mysql(self, title, date_time, href):
+        self.cursor = self.coon.cursor()
+        sql = 'insert into smth(title,date_time,href) value ("%s","%s","%s")'
+        prams = [(title, date_time, href)]
+        self.cursor.executemany(sql, prams)
+        self.coon.commit()
+        logger.info('{}写入mysql数据库'.format(title))
+
+    def run(self):
+        while True:
+            self.parse()
+
+
+if __name__ == '__main__':
+    spider = Spider()
+    spider.run()
