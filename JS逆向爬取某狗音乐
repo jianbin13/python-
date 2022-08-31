@@ -1,0 +1,90 @@
+import os
+import time
+import json
+import requests
+from hashlib import md5
+
+
+class Kugou_Spider(object):
+    def __init__(self, key):
+        self.key = key
+        self.ts = int(time.time() * 1000)
+        self.music_url = 'https://wwwapi.kugou.com/yy/index.php'
+        self.url = 'https://complexsearch.kugou.com/v2/search/song'
+        self.headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36'}
+        self.p = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt'
+        self.sign = f'{self.p}bitrate=0callback=callback123clienttime={self.ts}clientver=2000dfid=-inputtype=0iscorrection=1isfuzzy=0keyword={self.key}mid={self.ts}page=1pagesize=30platform=WebFilterprivilege_filter=0srcappid=2919token=userid=0uuid={self.ts}{self.p}'
+
+    def encryption(self):
+        md5_ = md5()
+        md5_.update(self.sign.encode())
+        sign = md5_.hexdigest().upper()
+        params = {
+            'callback': 'callback123',
+            'keyword': self.key,
+            'page': 1,
+            'pagesize': 30,
+            'bitrate': 0,
+            'isfuzzy': 0,
+            'inputtype': 0,
+            'platform': 'WebFilter',
+            'userid': 0,
+            'clientver': 2000,
+            'iscorrection': 1,
+            'privilege_filter': 0,
+            'token': '',
+            'srcappid': 2919,
+            'clienttime': self.ts,
+            'mid': self.ts,
+            'uuid': self.ts,
+            'dfid': '-',
+            'signature': sign
+        }
+        self.get_url(params)
+
+    def get_url(self, params):
+        response = requests.get(url=self.url, params=params, headers=self.headers).text
+        data = response.replace('callback123(', '').replace(')', '')
+        json_data = json.loads(data)
+        lists = json_data['data']['lists']
+        for i in lists:
+            filehash = i['FileHash']
+            album_id = i['AlbumID']
+            album_audio_id = i['MixSongID']
+            song_name = i['SongName']
+            self.parse_html(filehash, album_id, album_audio_id, song_name)
+
+    def parse_html(self, filehash, album_id, album_audio_id, song_name):
+        params = {
+            'r': 'play/getdata',
+            'callback': 'jQuery191014378769770448896_1654835358292',
+            'hash': filehash,
+            'dfid': '11T1Y410se0o4LqMzP2CsTwz',
+            'appid': '1014',
+            'mid': 'b6dffa1087a3d4ff6d8abef2f4de01da',
+            'platid': '4',
+            'album_id': album_id,
+            'album_audio_id': album_audio_id,
+            '_': self.ts,
+        }
+        response = requests.get(url=self.music_url, params=params, headers=self.headers).text
+        url_data = response.replace('jQuery191014378769770448896_1654835358292(', '').replace('});', '}')
+        music_url = json.loads(url_data)['data']['play_url']
+        self.save_music(music_url, song_name)
+
+    def save_music(self, music_url, song_name):
+        if not os.path.exists(self.key):
+            os.mkdir(self.key)
+        try:
+            with open(self.key + '/' + song_name + '.mp3', 'wb') as f:
+                music = requests.get(url=music_url, headers=self.headers).content
+                f.write(music)
+            print(song_name, '爬取成功')
+        except Exception as e:
+            print(e)
+
+
+if __name__ == '__main__':
+    key = input('请输入歌手姓名:')
+    spider = Kugou_Spider(key)
+    spider.encryption()
