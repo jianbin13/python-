@@ -1,0 +1,58 @@
+from loguru import logger
+import requests
+import json
+
+
+class WeiBo(object):
+    def __init__(self, key):
+        self.n = 1
+        self.url = 'https://weibo.com/ajax/statuses/show?id={}'.format(key)
+        self.url_comments = 'https://weibo.com/ajax/statuses/buildComments?'
+        self.headers = {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
+            'cookie': 'SINAGLOBAL=9415404040279.451.1660055518774; SUB=_2A25P9gAZDeThGeNI71US8CnMwj2IHXVtGKBRrDV8PUJbkNAfLVHykW1NSHHUXQ3n_JIQfWQ-w-ObFP2sCGba_VY6; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFY6D8PU5vuIrvhCPcQNekB5NHD95QfSoBNe05Neh.pWs4Dqcjqi--fi-i2i-8hi--fiK.0i-2fP02XSK5N; UOR=,,www.baidu.com; XSRF-TOKEN=Qh24MIIqUn1szhVzp_4lLDTT; _s_tentry=weibo.com; Apache=3554906327048.475.1661956786708; ULV=1661956786744:6:6:1:3554906327048.475.1661956786708:1660571643921; WBPSESS=3v-qpO0mmLJXfcpbEMQPP_fHPfvVuuyvUweqmaemr89UxP887bWdMV2qQ0xGrgv47dPcVr9O9FfV7a366XLOeiytLZMFgxBn6aAu6DlZBg3Ais_a6Z4I6lEJfjI1YQELVL_Q1VeoeSEmjMx08sthXg=='
+        }
+
+    def gain_id(self):
+        res = requests.get(url=self.url, headers=self.headers).text
+        js = json.loads(res)
+        mid = js['id']
+        id_str = js['user']['id']
+        params = {
+            'is_reload': 1,
+            'id': mid,
+            'is_show_bulletin': 2,
+            'is_mix': 0,
+            'count': 10,
+            'uid': id_str
+        }
+        return params
+
+    def get_url(self, params):
+        response = requests.get(url=self.url_comments, headers=self.headers, params=params).text
+        js_list = json.loads(response)
+        params['max_id'] = js_list['max_id']
+        params['flow'] = 0
+        js_data = js_list['data']
+        for i in js_data:
+            name = i['user']['screen_name']
+            # rootid = i['rootid']
+            text = i['text']
+            with open('微博评论.text', 'a', encoding='utf-8') as f:
+                f.write(str(self.n) + '. ' + name + ':' + text + '\n')
+
+            logger.info(f"用户名:{name}的评论 爬取成功")
+            self.n += 1
+        if params['max_id'] != 0:
+            self.get_url(params)
+
+    def run(self):
+        url_comments = self.gain_id()
+        self.get_url(url_comments)
+
+
+if __name__ == '__main__':
+    key = input('请输入评论网址:')
+    key = key.split('/')[-1]
+    spider = WeiBo(key)
+    spider.run()
