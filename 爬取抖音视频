@@ -1,1 +1,112 @@
 
+from urllib import parse
+import requests
+import json
+import re
+
+
+class DouYin_Spider(object):
+    """爬取单个视频"""
+    def __init__(self, url):
+        self.url = url
+        self.page_url = 'https://www.douyin.com/video/{}?previous_page=web_code_link'
+        self.headers = {
+            # 'X-Argus': 'NNf4AibwejyairbLXHQLK6vUl1uYFEMUeTFk3MuBTEex0cLBFWL3Bvfm/TlyL7VEQg+i7JxoXZueO0nCKcz5xNM+ekcX802+ZzQVNb+rIXoDgk7R1hRIW7vUAjVS5jXZgxlYVbtpRbEu0TT2EPAyjEYTi80j37m2g11qGWU2qKhhDrQ5BCEUz+eGA9VlHCuR9MDkgsfd0nE4GAPEVvOgaqr3MzVBxfzS2EQSxAXOmGGbRaMYnHLimi3Peqq5eQUO34g=',
+            # 'User-Agent': 'okhttp/3.10.0.1'
+            'cookie': 'douyin.com; ttwid=1%7CquH23TuHvYYxS87zGSbEz5lLOktxHjJvO0BqmNVn3t0%7C1658941838%7C7de718341c358ec000b5fe522039e4df20c6e1366d20afcbf509495ddaf7ae44; s_v_web_id=verify_l63v4ywk_CVUr7CJ1_fkUa_4Eav_8ocN_gugB9K2wxvOy; passport_csrf_token=c650ba18b2f229a192901408e952d7a8; passport_csrf_token_default=c650ba18b2f229a192901408e952d7a8; _tea_utm_cache_1128=undefined; THEME_STAY_TIME=%22299060%22; IS_HIDE_THEME_CHANGE=%221%22; download_guide=%223%2F20220903%22; _tea_utm_cache_1243=undefined; live_can_add_dy_2_desktop=%220%22; _tea_utm_cache_2018=undefined; n_mh=LmH5bniwIBNerMkhFOj-BorKr39B1Q_cWi1Wkwy2ByM; sso_uid_tt=98cddfbfe683ece5995e64206fa79afc; sso_uid_tt_ss=98cddfbfe683ece5995e64206fa79afc; toutiao_sso_user=f5bceb0212f192a57bf943dcf54f5163; toutiao_sso_user_ss=f5bceb0212f192a57bf943dcf54f5163; sid_ucp_sso_v1=1.0.0-KDg1ZWRmNzE4ZjI4YTE4NmY0OTBiMDY5ZDVkZDNkNmZlYzg2YTA3YjQKHgjvmuDR34wVEPK0zpgGGO8xIAwwxcj-kgY4BkD0BxoCbGYiIGY1YmNlYjAyMTJmMTkyYTU3YmY5NDNkY2Y1NGY1MTYz; ssid_ucp_sso_v1=1.0.0-KDg1ZWRmNzE4ZjI4YTE4NmY0OTBiMDY5ZDVkZDNkNmZlYzg2YTA3YjQKHgjvmuDR34wVEPK0zpgGGO8xIAwwxcj-kgY4BkD0BxoCbGYiIGY1YmNlYjAyMTJmMTkyYTU3YmY5NDNkY2Y1NGY1MTYz; odin_tt=c4af3290a7dbb5444bade31f23626058f933ff7554f6501ed539435317112459d33ed52e0d1afd1f7c21299be4ac6a9cbc0adb4752ec35c86821572cc83f436e; passport_auth_status=5e3905226f9b19255fee3b48ca6ce2dc%2C; passport_auth_status_ss=5e3905226f9b19255fee3b48ca6ce2dc%2C; sid_guard=6b2c06a7d0d79ebb3e5c200ee35a28fe%7C1662229107%7C5183999%7CWed%2C+02-Nov-2022+18%3A18%3A26+GMT; uid_tt=882279962b1e2f71f39be8f9050736a2; uid_tt_ss=882279962b1e2f71f39be8f9050736a2; sid_tt=6b2c06a7d0d79ebb3e5c200ee35a28fe; sessionid=6b2c06a7d0d79ebb3e5c200ee35a28fe; sessionid_ss=6b2c06a7d0d79ebb3e5c200ee35a28fe; sid_ucp_v1=1.0.0-KDExMTU3NTRmOWZmMWE1ZTc0MWNjOTUwNjY1NmU4M2Y3NzAxNmFhOWIKGAjvmuDR34wVEPO0zpgGGO8xIAw4BkD0BxoCbHEiIDZiMmMwNmE3ZDBkNzllYmIzZTVjMjAwZWUzNWEyOGZl; ssid_ucp_v1=1.0.0-KDExMTU3NTRmOWZmMWE1ZTc0MWNjOTUwNjY1NmU4M2Y3NzAxNmFhOWIKGAjvmuDR34wVEPO0zpgGGO8xIAw4BkD0BxoCbHEiIDZiMmMwNmE3ZDBkNzllYmIzZTVjMjAwZWUzNWEyOGZl; FOLLOW_LIVE_POINT_INFO=%22MS4wLjABAAAAA7NBOex9z749WgN_1mIz6URYKPKF2OYE69jZorY4caU%2F1662307200000%2F0%2F0%2F1662229947572%22; MONITOR_WEB_ID=104a5b46-27e2-43b2-92a8-a721de0b714d; strategyABtestKey=1662328099.003; douyin.com; VIDEO_FILTER_MEMO_SELECT=%7B%22expireTime%22%3A1662941199327%2C%22type%22%3A0%7D; FOLLOW_NUMBER_YELLOW_POINT_INFO=%22MS4wLjABAAAAA7NBOex9z749WgN_1mIz6URYKPKF2OYE69jZorY4caU%2F1662393600000%2F0%2F1662336399637%2F0%22; tt_scid=3yyk1cWUy33p5M94ef4f7pHwzikTAY0paMes4WmLDO9XS9pCqKnutatFPL0fryp344c8; home_can_add_dy_2_desktop=%220%22; msToken=6oEauUFxr0usEUHCoUhXTpXPoVmEnJECWnJflQHGj0tXUuD3TlJgOsYQqvCTAp4ZgA_SudlxFCEv7R7Ix2kIWKXbiEZuMqlfq7VKjh0Ha9v51bCkZbDhUZaXGCQEaaWH; msToken=w-tRrErbu2_kLux9PKPDrbvK8xtJq5ovPWUQll76pKZNKYR7z5uODMPL0tNJk-8-iuN0eG2pLpeFfufV-AThZWVth-qTK1F4l-QgRrmFmbnubeOcmX9wN7UsFmnFwDf1XxM=; __ac_nonce=063154ee10020832864dd; __ac_signature=_02B4Z6wo00f01VNX1ZgAAIDB01Uv2EvGNDFTd9EAADfEcEK7ovZDAdzaxuz8G8.6WASnIYX2garwREmBXicY5CBTu3bXiDlxIqd-3D849L-fim5TMlX-tlu26CuNsN2MQavlRDYaMvc1ypry82; __ac_referer=__ac_blank',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'
+        }
+
+    def get_url(self, url):
+        response = requests.get(url=url, headers=self.headers)
+        if response.status_code == 200:
+            return response
+
+    def parse(self):
+        result = self.get_url(self.url)
+        print(result.url)
+        # 切割url获得u_id
+        u_id = result.url.split('/')[-1].split('?')[0]
+        html = self.get_url(url=self.page_url.format(u_id))
+        title = re.findall(r'<title data-react-helmet="true">(.*?)</title>', html.text)[0]
+        video_url = parse.unquote('http:' + re.findall(r'src%22%3A%22(.*?)%22%7D%2C%7B%22', html.text)[0])
+        video_data = self.get_url(url=video_url)
+        self.save(video_data, title)
+
+    def save(self, video_data, title):
+        with open('抖音视频/' + title + '.mp4', 'wb') as f:
+            f.write(video_data.content)
+        print("{}:下载完成".format(title))
+
+    def run(self):
+        self.parse()
+
+
+class DouYin(object):
+    """爬取个人主页所有视频"""
+    def __init__(self, u_id):
+        self.id = u_id
+        self.num = 1
+        self.max_cursor = 0
+        self.has_more = True
+        self.url = 'https://www.douyin.com/web/api/v2/aweme/post/?reflow_source=reflow_page&sec_uid={}&count=21&max_cursor={}'
+        self.headers = {
+            'X-Argus': 'NNf4AibwejyairbLXHQLK6vUl1uYFEMUeTFk3MuBTEex0cLBFWL3Bvfm/TlyL7VEQg+i7JxoXZueO0nCKcz5xNM+ekcX802+ZzQVNb+rIXoDgk7R1hRIW7vUAjVS5jXZgxlYVbtpRbEu0TT2EPAyjEYTi80j37m2g11qGWU2qKhhDrQ5BCEUz+eGA9VlHCuR9MDkgsfd0nE4GAPEVvOgaqr3MzVBxfzS2EQSxAXOmGGbRaMYnHLimi3Peqq5eQUO34g=',
+            'User-Agent': 'okhttp/3.10.0.1'
+        }
+
+    def get_url(self, url):
+        response = requests.get(url=url, headers=self.headers)
+        if response.status_code == 200:
+            return response
+
+    def parse(self):
+        result = self.get_url(self.url.format(self.id, self.max_cursor))
+        js_data = json.loads(result.text)
+        aweme_list = js_data['aweme_list']
+        # has_more有数据为:True,没有数据为False
+        self.has_more = js_data['has_more']
+        for li in aweme_list:
+            # str(self.num) + li['desc']防止title为空
+            title = (str(self.num) + li['desc']).strip().replace('\n','')
+            video_url = li['video']['play_addr']['url_list'][0]
+            self.save(title, video_url)
+            self.num += 1
+        while self.has_more:
+            if self.has_more:
+                self.max_cursor = js_data['max_cursor']
+                self.parse()
+            else:
+                break
+
+    def save(self, title, video_url):
+        video_data = self.get_url(video_url)
+        with open('抖音视频/' + title + '.mp4', 'wb') as f:
+            f.write(video_data.content)
+        print("{}:下载成功".format(title))
+
+    def run(self):
+        self.parse()
+
+
+if __name__ == '__main__':
+    while True:
+        print('============= 1.退出程序')
+        key = input('请输入个人主页或单个视频分享连接:')
+        if 'v.douyin' in key:
+            """爬取单个视频"""
+            url = 'http://' + re.findall(r'https://(.*?) 复制此链接', key)[0]
+            spider = DouYin_Spider(url)
+            spider.run()
+        elif 'user' in key:
+            """爬取个人主页所有视频"""
+            # u_id = re.findall(r'/(.*?)\?',u_id)[0]
+            u_id = key.split('/')[-1].split('?')[0]
+            spider = DouYin(u_id)
+            spider.run()
+        elif int(key) == 1:
+            break
+        else:
+            print('请输入正确的网址')
+
+
